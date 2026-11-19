@@ -44,16 +44,38 @@ jobs:
       - uses: levibostian/action-hide-sensitive-inputs@v1
 
       - name: Download IPA
+        env:
+          IPA_URL: ${{ inputs.ipa_url }}
         run: |
-          wget "${{ inputs.ipa_url }}" --no-verbose -O ${{ github.workspace }}/spotify.ipa
+          if [[ -z "$IPA_URL" || ! "$IPA_URL" =~ ^https?:// ]]; then
+            echo "::error::A valid direct download URL is required for the IPA input."
+            exit 1
+          fi
+          if ! curl --fail --location --retry 3 --retry-delay 2 --retry-all-errors \
+              --proto '=https,http' --show-error --silent \
+              --output "${{ github.workspace }}/spotify.ipa" "$IPA_URL"; then
+            echo "::error::Failed to download the IPA. Use a direct download URL (not a file-provider webpage); HTTP 404 means the URL is missing or expired."
+            exit 1
+          fi
           file_type=$(file --mime-type -b ${{ github.workspace }}/spotify.ipa)
           if [[ "$file_type" != "application/x-ios-app" && "$file_type" != "application/zip" ]]; then
             echo "::error::Not a valid IPA: $file_type"; exit 1
           fi
 
       - name: Download .deb
+        env:
+          TWEAK_URL: ${{ inputs.tweak_url }}
         run: |
-          wget "${{ inputs.tweak_url }}" --no-verbose -O ${{ github.workspace }}/eevee.deb
+          if [[ -z "$TWEAK_URL" || ! "$TWEAK_URL" =~ ^https?:// ]]; then
+            echo "::error::A valid direct download URL is required for the .deb input."
+            exit 1
+          fi
+          if ! curl --fail --location --retry 3 --retry-delay 2 --retry-all-errors \
+              --proto '=https,http' --show-error --silent \
+              --output "${{ github.workspace }}/eevee.deb" "$TWEAK_URL"; then
+            echo "::error::Failed to download the .deb. Use a direct download URL (not a release webpage); HTTP 404 means the URL is missing or expired."
+            exit 1
+          fi
           file_type=$(file --mime-type -b ${{ github.workspace }}/eevee.deb)
           if [[ "$file_type" != "application/vnd.debian.binary-package" ]]; then
             echo "::error::Not a valid .deb: $file_type"; exit 1
